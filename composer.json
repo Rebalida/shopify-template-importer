@@ -1,0 +1,9 @@
+{
+    "name": "grs/template-importer",
+    "description": "Shopify GRS Template Importer (PHP Web App)",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "vlucas/phpdotenv": "^5.6"
+    }
+}
