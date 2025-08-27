@@ -149,8 +149,6 @@ header('Cache-Control: no-store');
 
 $out = fopen('php://output', 'w');
 
-// fwrite($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
-
 // Write header
 fputcsv($out, $header);
 
@@ -193,6 +191,7 @@ while (($row = fgetcsv($in, 0, ',')) !== false) {
     $isOnSale = cleanBoolean(getValue($r, 'Is On Sale'), 'FALSE');
     $releaseDate = getValue($r, 'Release Date');
     $newDuration = cleanNumeric(getValue($r, 'New Duration'), '0');
+    $quantity = cleanNumeric(getValue($r, 'Quantity'), '0');
     
     $handle = to_handle($title);
     
@@ -253,7 +252,8 @@ while (($row = fgetcsv($in, 0, ',')) !== false) {
         $sku,
         cleanNumeric(getValue($r, 'Weight'), ''),
         $config['default_inventory_tracker'],
-        getValue($r, 'Inventory Qty', $config['default_inventory_qty']),
+        $quantity,
+        // getValue($r, 'Inventory Qty', $config['default_inventory_qty']),
         getValue($r, 'Inventory Policy', $config['default_inventory_policy']),
         $config['default_fulfillment_service'],
         $variantPrice,

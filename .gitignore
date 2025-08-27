@@ -1,0 +1,8 @@
+# Ignore vendor folder
+/vendor/
+
+# Ignore environment file
+.env
+
+# Ignore storage folder
+/storage/
