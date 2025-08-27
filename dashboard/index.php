@@ -201,19 +201,32 @@
     <!-- Import Modal -->
     <div id="importModal" class="hidden fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 text-center">
-            <h3 class="text-xl font-semibold mb-4">Importing Products</h3>
-            <div id="importLoader" class="flex flex-col items-center">
-            <svg class="animate-spin h-10 w-10 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-            </svg>
-            <p class="text-gray-600">Please wait, importing products...</p>
+
+            <!-- Shop Selection -->
+            <div id="shopSelection" class="mb-6">
+                <h3 class="text-xl font-semibold mb-4">Select Shop for Import</h3>
+                <div id="shopCards" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                        
+                </div>
             </div>
-            <div id="importResults" class="hidden">
-            <div class="text-green-600 font-semibold mb-3">Import Finished!</div>
-            <ul id="importList" class="text-left text-sm space-y-2 max-h-60 overflow-y-auto"></ul>
+            
+            <!-- Import Progress View (initially hidden) -->
+            <div id="importProgress" class="hidden text-center">
+                <div id="importLoader" class="flex flex-col items-center">
+                    <svg class="animate-spin h-10 w-10 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                    <p class="text-gray-600">Please wait, importing products...</p>
+                </div>
+                <div id="importResults" class="hidden">
+                    <div class="text-green-600 font-semibold mb-3">Import Finished!</div>
+                    <ul id="importList" class="text-left text-sm space-y-2 max-h-60 overflow-y-auto"></ul>
+                    
+                </div>
+            </div>
+
             <button onclick="closeModal()" class="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Close</button>
-            </div>
         </div>
     </div>
 
@@ -278,82 +291,109 @@
         function startImport(fileName) {
             // Show modal
             document.getElementById('importModal').classList.remove('hidden');
+            document.getElementById('shopSelection').classList.remove('hidden');
+            document.getElementById('importProgress').classList.add('hidden');
+            
+            // Fetch and display shops
+            fetch('import/get_shops.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success || !data.shops.length) {
+                        throw new Error('No shops available. Please add a shop in Settings first.');
+                    }
+                    
+                    const shopCards = document.getElementById('shopCards');
+                    shopCards.innerHTML = data.shops.map(shop => `
+                        <div onclick="selectShopAndImport('${fileName}', ${shop.id})" 
+                            class="p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors duration-200">
+                            <div class="font-medium text-gray-900">${shop.name}</div>
+                            <div class="text-sm text-gray-500">${shop.shop_url}</div>
+                        </div>
+                    `).join('');
+                })
+                .catch(error => {
+                    document.getElementById('shopCards').innerHTML = `
+                        <div class="col-span-2 p-4 bg-red-50 text-red-600 rounded-lg">
+                            <div class="font-medium">Error</div>
+                            <div class="text-sm">${error.message}</div>
+                        </div>`;
+                });
+        }
+
+        function selectShopAndImport(fileName, shopId) {
+            // Hide shop selection and show progress
+            document.getElementById('shopSelection').classList.add('hidden');
+            document.getElementById('importProgress').classList.remove('hidden');
             document.getElementById('importLoader').classList.remove('hidden');
             document.getElementById('importResults').classList.add('hidden');
 
-            fetch(`import/run.php?file=${fileName}`)
-            .then(async response => {
-                const contentType = response.headers.get('content-type');
-                const text = await response.text();
+            // Call import endpoint with shop ID
+            fetch(`import/run.php?file=${fileName}&shop_id=${shopId}`)
+                .then(async response => {
+                    const contentType = response.headers.get('content-type');
+                    const text = await response.text();
 
-                // Debug logging
-                console.log('Response status:', response.status);
-                console.log('Content-Type:', contentType);
-                console.log('Raw response:', text);
+                    if (!contentType || !contentType.includes('application/json')) {
+                        throw new Error(`Invalid content type: ${contentType}. Raw response: ${text}`);
+                    }
 
-                // Check if response is actually JSON
-                if (!contentType || !contentType.includes('application/json')) {
-                    throw new Error(`Invalid content type: ${contentType}. Raw response: ${text}`);
-                }
+                    try {
+                        return JSON.parse(text);
+                    } catch (e) {
+                        throw new Error(`Failed to parse JSON: ${e.message}. Raw response: ${text}`);
+                    }
+                })
+                .then(data => {
+                    document.getElementById('importLoader').classList.add('hidden');
+                    document.getElementById('importResults').classList.remove('hidden');
 
-                try {
-                    return JSON.parse(text);
-                } catch (e) {
-                    throw new Error(`Failed to parse JSON: ${e.message}. Raw response: ${text}`);
-                }
-            })
-            .then(data => {
-                document.getElementById('importLoader').classList.add('hidden');
-                document.getElementById('importResults').classList.remove('hidden');
+                    const list = document.getElementById('importList');
+                    list.innerHTML = "";
 
-                const list = document.getElementById('importList');
-                list.innerHTML = "";
+                    if (data.results) {
+                        data.results.forEach(r => {
+                            const li = document.createElement('li');
+                            li.classList.add("flex", "items-center", "space-x-2", "p-2");
+                            
+                            const icon = document.createElement('i');
+                            if (r.status === "success") {
+                                icon.className = "fa-solid fa-circle-check text-green-600";
+                                li.classList.add("bg-green-50");
+                            } else {
+                                icon.className = "fa-solid fa-circle-xmark text-red-600";
+                                li.classList.add("bg-red-50");
+                            }
 
-                if (data.results) {
-                    data.results.forEach(r => {
-                        const li = document.createElement('li');
-                        li.classList.add("flex", "items-center", "space-x-2", "p-2");
-                        
-                        const icon = document.createElement('i');
-                        if (r.status === "success") {
-                            icon.className = "fa-solid fa-circle-check text-green-600";
-                            li.classList.add("bg-green-50");
-                        } else {
-                            icon.className = "fa-solid fa-circle-xmark text-red-600";
-                            li.classList.add("bg-red-50");
-                        }
+                            const text = document.createElement('span');
+                            text.textContent = r.title;
+                            
+                            if (r.error) {
+                                const errorText = document.createElement('span');
+                                errorText.textContent = ` - Error: ${r.error}`;
+                                errorText.classList.add("text-red-600", "ml-2");
+                                text.appendChild(errorText);
+                            }
 
-                        const text = document.createElement('span');
-                        text.textContent = r.title;
-                        
-                        // Add error details if present
-                        if (r.error) {
-                            const errorText = document.createElement('span');
-                            errorText.textContent = ` - Error: ${r.error}`;
-                            errorText.classList.add("text-red-600", "ml-2");
-                            text.appendChild(errorText);
-                        }
-
-                        li.appendChild(icon);
-                        li.appendChild(text);
-                        list.appendChild(li);
-                    });
-                }
-            })
-            .catch(err => {
-                document.getElementById('importLoader').classList.add('hidden');
-                document.getElementById('importResults').classList.remove('hidden');
-                
-                const list = document.getElementById('importList');
-                list.innerHTML = `
-                    <li class='flex items-center space-x-2 p-4 bg-red-50 text-red-600 rounded'>
-                        <i class='fa-solid fa-triangle-exclamation'></i>
-                        <div class='flex flex-col'>
-                            <span class='font-semibold'>Import Error:</span>
-                            <span class='text-sm whitespace-pre-wrap'>${err.message}</span>
-                        </div>
-                    </li>`;
-            });
+                            li.appendChild(icon);
+                            li.appendChild(text);
+                            list.appendChild(li);
+                        });
+                    }
+                })
+                .catch(err => {
+                    document.getElementById('importLoader').classList.add('hidden');
+                    document.getElementById('importResults').classList.remove('hidden');
+                    
+                    const list = document.getElementById('importList');
+                    list.innerHTML = `
+                        <li class='flex items-center space-x-2 p-4 bg-red-50 text-red-600 rounded'>
+                            <i class='fa-solid fa-triangle-exclamation'></i>
+                            <div class='flex flex-col'>
+                                <span class='font-semibold'>Import Error:</span>
+                                <span class='text-sm whitespace-pre-wrap'>${err.message}</span>
+                            </div>
+                        </li>`;
+                });
         }
 
         function closeModal() {

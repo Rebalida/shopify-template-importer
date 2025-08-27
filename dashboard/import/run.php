@@ -14,11 +14,40 @@ if (!isset($_SESSION['user'])) {
     exit();
 }
 
-require __DIR__ . '/../../config/config.php';
+require_once '../../config/config.php';
 require __DIR__ . '/helpers.php';
 
 try {
-    // Validate input
+    // Validate shop ID
+    $shopId = $_GET['shop_id'] ?? null;
+    if (!$shopId) {
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Shop ID is required'
+        ]);
+        exit();
+    }
+
+    // Fetch shop credentials
+    $stmt = $pdo->prepare("SELECT shop_url, access_token FROM shops WHERE id = ?");
+    $stmt->execute([$shopId]);
+    $shop = $stmt->fetch();
+    
+    if (!$shop) {
+        http_response_code(404);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Shop not found'
+        ]);
+        exit();
+    }
+
+    // Use shop credentials
+    $SHOP_URL = rtrim($shop['shop_url'], '/');
+    $ACCESS_TOKEN = $shop['access_token'];
+
+    // Validate input file
     $fileName = $_GET['file'] ?? null;
     if (!$fileName) {
         http_response_code(400);
@@ -67,8 +96,20 @@ try {
                 continue;
             }
 
+            // Validate required fields
+            $title = getValue($row, 'Reward Name');
+            if (empty($title)) {
+                $results[] = [
+                    'title' => 'Unknown Product',
+                    'status' => 'failed',
+                    'error' => 'Missing required field: Reward Name'
+                ];
+                $failCount++;
+                continue;
+            }
+
             try {
-                // Build product payload
+                // Build product payload using the new mapping logic
                 $productPayload = buildShopifyProductPayload($row);
 
                 // Create product via Shopify API
@@ -81,6 +122,7 @@ try {
                 ]);
                 curl_setopt($ch, CURLOPT_POST, true);
                 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($productPayload));
+                curl_setopt($ch, CURLOPT_TIMEOUT, 30);
 
                 $response = curl_exec($ch);
                 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -94,27 +136,20 @@ try {
                 if ($httpCode === 201) {
                     $respData = json_decode($response, true);
                     $productId = $respData["product"]["id"] ?? null;
+                    $productHandle = $respData["product"]["handle"] ?? null;
 
                     if (!$productId) {
                         throw new Exception('Product created but no ID returned');
                     }
 
-                    // Attach metafields
+                    // Attach metafields following the specification
                     $metafields = getMetafields($row);
                     $metafieldErrors = [];
+                    $metafieldSuccess = [];
                     
                     foreach ($metafields as $key => [$type, $value]) {
-                        if ($value !== null && trim($value) !== "") {
-                            $metaPayload = [
-                                "metafield" => [
-                                    "namespace" => "grs",
-                                    "key" => $key,
-                                    "type" => $type,
-                                    "value" => $value,
-                                    "owner_resource" => "product",
-                                    "owner_id" => $productId
-                                ]
-                            ];
+                        try {
+                            $metaPayload = createMetafieldPayload($productId, $key, $type, $value);
 
                             $metaUrl = $SHOP_URL . "/admin/api/" . $API_VERSION . "/metafields.json";
                             $ch = curl_init($metaUrl);
@@ -125,33 +160,66 @@ try {
                             ]);
                             curl_setopt($ch, CURLOPT_POST, true);
                             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($metaPayload));
+                            curl_setopt($ch, CURLOPT_TIMEOUT, 15);
                             
                             $metaResponse = curl_exec($ch);
                             $metaHttpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                            
+                            if (curl_error($ch)) {
+                                $metafieldErrors[] = "Metafield '$key': cURL error - " . curl_error($ch);
+                            } elseif ($metaHttpCode === 201) {
+                                $metafieldSuccess[] = $key;
+                            } else {
+                                $metaErrorData = json_decode($metaResponse, true);
+                                $metaErrorMsg = isset($metaErrorData['errors']) 
+                                    ? json_encode($metaErrorData['errors']) 
+                                    : "HTTP $metaHttpCode";
+                                $metafieldErrors[] = "Metafield '$key': $metaErrorMsg";
+                            }
+                            
                             curl_close($ch);
                             
-                            if ($metaHttpCode !== 201) {
-                                $metafieldErrors[] = "Failed to create metafield '$key': HTTP $metaHttpCode";
-                            }
+                            // Add small delay to avoid rate limiting
+                            usleep(100000); // 0.1 second delay
+                            
+                        } catch (Exception $e) {
+                            $metafieldErrors[] = "Metafield '$key': " . $e->getMessage();
                         }
                     }
 
                     $results[] = [
-                        'title' => $row["Reward Name"] ?? 'Unknown Product',
+                        'title' => $title,
+                        'handle' => $productHandle,
                         'status' => 'success',
                         'product_id' => $productId,
+                        'metafields_created' => count($metafieldSuccess),
+                        'metafields_failed' => count($metafieldErrors),
                         'metafield_errors' => $metafieldErrors
                     ];
                     $successCount++;
 
                 } else {
                     $errorData = json_decode($response, true);
-                    $errorMessage = isset($errorData['errors']) 
-                        ? json_encode($errorData['errors']) 
-                        : $response;
+                    $errorMessage = 'HTTP ' . $httpCode;
+                    
+                    if (isset($errorData['errors'])) {
+                        if (is_array($errorData['errors'])) {
+                            $errorDetails = [];
+                            foreach ($errorData['errors'] as $field => $messages) {
+                                if (is_array($messages)) {
+                                    $errorDetails[] = "$field: " . implode(', ', $messages);
+                                } else {
+                                    $errorDetails[] = "$field: $messages";
+                                }
+                            }
+                            $errorMessage = implode('; ', $errorDetails);
+                        } else {
+                            $errorMessage = $errorData['errors'];
+                        }
+                    }
                     
                     $results[] = [
-                        'title' => $row["Reward Name"] ?? 'Unknown Product',
+                        'title' => $title,
                         'status' => 'failed',
                         'http_code' => $httpCode,
                         'error' => $errorMessage
@@ -161,12 +229,15 @@ try {
 
             } catch (Exception $e) {
                 $results[] = [
-                    'title' => $row["Reward Name"] ?? 'Unknown Product',
+                    'title' => $title,
                     'status' => 'failed',
                     'error' => $e->getMessage()
                 ];
                 $failCount++;
             }
+            
+            // Add delay between products to avoid rate limiting
+            usleep(200000); // 0.2 second delay
         }
         fclose($handle);
     }
@@ -177,7 +248,8 @@ try {
         'summary' => [
             'total_processed' => $totalProcessed,
             'successful' => $successCount,
-            'failed' => $failCount
+            'failed' => $failCount,
+            'success_rate' => $totalProcessed > 0 ? round(($successCount / $totalProcessed) * 100, 1) : 0
         ],
         'results' => $results
     ]);
