@@ -1,8 +1,8 @@
 <?php
     session_start();
-    if (!isset($_SESSION['user'])) {
-        header("Location: ../auth/login.php");
-        exit();
+        if (!isset($_SESSION['user'])) {
+            header("Location: ../auth/login.php");
+            exit();
     }
 
     $rows = [];
@@ -38,86 +38,7 @@
         }
     }
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CSV Importer - GRS Template</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: {
-                            50: '#eff6ff',
-                            100: '#dbeafe',
-                            500: '#3b82f6',
-                            600: '#2563eb',
-                            700: '#1d4ed8',
-                            900: '#1e3a8a'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        .file-upload-wrapper {
-            position: relative;
-            overflow: hidden;
-            display: inline-block;
-        }
-        .file-upload-input {
-            position: absolute;
-            left: -9999px;
-        }
-        .fade-in {
-            animation: fadeIn 0.5s ease-in;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .table-scroll {
-            scrollbar-width: thin;
-            scrollbar-color: #cbd5e0 #f7fafc;
-        }
-        .table-scroll::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        .table-scroll::-webkit-scrollbar-track {
-            background: #f7fafc;
-        }
-        .table-scroll::-webkit-scrollbar-thumb {
-            background-color: #cbd5e0;
-            border-radius: 4px;
-        }
-    </style>
-</head>
-<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-    <!-- Header -->
-    <div class="bg-white shadow-sm border-b">
-        <div class="max-w-6xl mx-auto px-4 py-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                    <div class="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                        </svg>
-                    </div>
-                    <h1 class="text-2xl font-bold text-gray-900">GRS Template Importer</h1>
-                </div>
-                <div class="text-gray-500 flex space-x-4">
-                    <h2>Welcome, <span class="font-bold"><?php echo htmlspecialchars($_SESSION['user']['name'] ?? 'User'); ?></span></h2>
-                    <a href="../auth/logout.php">Logout</a>
-                </div>
-            </div>
-        </div>
-    </div>
+<?php include '../templates/header.php'; ?>
 
     <div class="max-w-6xl mx-auto px-4 py-8">
         <!-- Upload Card -->
@@ -147,7 +68,8 @@
                         </label>
                     </div>
                     
-                    <button type="submit" class="w-full px-6 py-3 bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold rounded-xl hover:from-primary-700 hover:to-primary-800 transform hover:scale-105 transition-all duration-200 shadow-lg">
+                    <button type="submit" class="w-full px-8 py-4 bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold rounded-xl hover:from-primary-700 hover:to-primary-900 transform hover:scale-105 transition-all duration-200 shadow-lg">
+                        
                         <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                         </svg>
@@ -275,24 +197,24 @@
         </div>
         <?php endif; ?>
     </div>
-
+    
     <!-- Import Modal -->
     <div id="importModal" class="hidden fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 text-center">
-        <h3 class="text-xl font-semibold mb-4">Importing Products</h3>
-        <div id="importLoader" class="flex flex-col items-center">
-        <svg class="animate-spin h-10 w-10 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-        </svg>
-        <p class="text-gray-600">Please wait, importing products...</p>
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 text-center">
+            <h3 class="text-xl font-semibold mb-4">Importing Products</h3>
+            <div id="importLoader" class="flex flex-col items-center">
+            <svg class="animate-spin h-10 w-10 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+            <p class="text-gray-600">Please wait, importing products...</p>
+            </div>
+            <div id="importResults" class="hidden">
+            <div class="text-green-600 font-semibold mb-3">Import Finished!</div>
+            <ul id="importList" class="text-left text-sm space-y-2 max-h-60 overflow-y-auto"></ul>
+            <button onclick="closeModal()" class="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Close</button>
+            </div>
         </div>
-        <div id="importResults" class="hidden">
-        <div class="text-green-600 font-semibold mb-3">Import Finished!</div>
-        <ul id="importList" class="text-left text-sm space-y-2 max-h-60 overflow-y-auto"></ul>
-        <button onclick="closeModal()" class="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Close</button>
-        </div>
-    </div>
     </div>
 
     <script>

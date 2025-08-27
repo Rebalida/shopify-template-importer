@@ -7,7 +7,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($user === 'admin' && $pass === '123') {
         $_SESSION['user'] = $user;
-        header("Location: ../dashboard/index.php");
+        header("Location: ../dashboard/");
         exit();
     } else {
         $error = "Invalid login";
