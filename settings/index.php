@@ -7,12 +7,14 @@
         $shop_url = $_POST['shop_url'];
         $access_token = $_POST['access_token'];
 
-        // Hash the access toke
-        $hashed_token = password_hash($access_token, PASSWORD_DEFAULT);
+        // Hash the access token
+        $iv = openssl_random_pseudo_bytes(16);
+        $encrypted_token = openssl_encrypt($access_token, 'AES-256-CBC', ENCRYPTION_KEY, 0, $iv);
+        $token_data = base64_encode($encrypted_token . '::' . base64_encode($iv));
 
         try {
             $stmt = $pdo->prepare("INSERT INTO shops (name, shop_url, access_token) VALUES (?, ?, ?)");
-            $stmt->execute([$name, $shop_url, $hashed_token]);
+            $stmt->execute([$name, $shop_url, $token_data]);
             
             header('Content-Type: application/json');
             echo json_encode(['status' => 'success']);

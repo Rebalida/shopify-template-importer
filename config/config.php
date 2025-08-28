@@ -6,6 +6,8 @@ use Dotenv\Dotenv;
 $dotenv = Dotenv::createImmutable(__DIR__ . '/..');
 $dotenv->load();
 
+define('ENCRYPTION_KEY', $_ENV['ENCRYPTION_KEY']);
+
 // Shopify API
 $SHOP_URL = $_ENV['SHOP_URL'];
 $ACCESS_TOKEN = $_ENV['ACCESS_TOKEN'];

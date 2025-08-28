@@ -45,7 +45,7 @@ try {
 
     // Use shop credentials
     $SHOP_URL = rtrim($shop['shop_url'], '/');
-    $ACCESS_TOKEN = $shop['access_token'];
+    $token_data = base64_decode($shop['access_token']);
 
     // Validate input file
     $fileName = $_GET['file'] ?? null;
