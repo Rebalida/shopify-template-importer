@@ -20,7 +20,7 @@ if (empty($shop_url) || empty($access_token)) {
 
 $shop_domain = str_replace(['https://', 'http://', '/'], '', $shop_url);
 if (!str_ends_with( $shop_domain, '.myshopify.com' )) {
-    $shop_dmain .= '.myshopify.com';
+    $shop_domain .= '.myshopify.com';
 }
 
 $api_url = "https://{$shop_domain}/admin/api/2023-10/shop.json";
