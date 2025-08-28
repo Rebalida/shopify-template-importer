@@ -1,9 +1,7 @@
 <?php
 session_start();
-if (!isset($_SESSION['user'])) {
-    http_response_code(401);
-    exit('Unauthorized');
-}
+require_once '../../auth/middleware.php';
+checkAuth();
 
 // Paths
 $fileName = $_GET['file'] ?? null;

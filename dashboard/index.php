@@ -1,9 +1,7 @@
 <?php
     session_start();
-        if (!isset($_SESSION['user'])) {
-            header("Location: ../auth/login.php");
-            exit();
-    }
+    require_once '../auth/middleware.php';
+    checkAuth();
 
     $rows = [];
     $header = [];
@@ -185,8 +183,6 @@
                     <i class="fa-solid fa-file-csv mr-2"></i>
                     Convert to Shopify CSV
                 </a>
-
-                
                 <button type="button"
                     onclick="startImport('<?php echo urlencode($fileName); ?>')"
                     class="flex items-center justify-center px-8 py-4 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-semibold rounded-xl hover:from-indigo-700 hover:to-indigo-800 transform hover:scale-105 transition-all duration-200 shadow-lg">

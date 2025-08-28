@@ -5,14 +5,8 @@ session_start();
 header('Content-Type: application/json');
 
 // Check authentication
-if (!isset($_SESSION['user'])) {
-    http_response_code(401);
-    echo json_encode([
-        'success' => false,
-        'error' => 'Unauthorized access'
-    ]);
-    exit();
-}
+require_once '../../auth/middleware.php';
+checkAuth();
 
 require_once '../../config/config.php';
 require __DIR__ . '/helpers.php';

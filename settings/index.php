@@ -1,6 +1,7 @@
 <?php
     require_once '../config/config.php';
-    
+    require_once '../auth/middleware.php';
+    checkAuth('admin');
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $name = $_POST['name'];
