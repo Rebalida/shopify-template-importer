@@ -89,7 +89,7 @@
             </form>
 
             <p class="text-center mt-3">
-                <a href="#" class="text-decoration-none">Forgot password?</a>
+                <a href="forgot_password.php" class="text-decoration-none">Forgot password?</a>
             </p>
         </div>
     </div>
