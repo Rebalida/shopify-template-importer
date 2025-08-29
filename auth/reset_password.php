@@ -15,13 +15,11 @@ if (empty($token)) {
 
 // Check if token is valid and not expired
 try {
-    // Use UTC for consistent timezone handling
     $stmt = $pdo->prepare("SELECT id, email, reset_token_expires FROM users WHERE reset_token = ? AND reset_token_expires > UTC_TIMESTAMP()");
     $stmt->execute([$token]);
     $user = $stmt->fetch();
 
     if (!$user) {
-        // Check if token exists but expired
         $stmt = $pdo->prepare("SELECT id, reset_token_expires FROM users WHERE reset_token = ?");
         $stmt->execute([$token]);
         $expiredUser = $stmt->fetch();
@@ -30,7 +28,6 @@ try {
             $messageType = 'warning';
             $message = "This reset link has expired. Please request a new password reset link.";
             
-            // Optional: Clean up expired token
             $cleanupStmt = $pdo->prepare("UPDATE users SET reset_token = NULL, reset_token_expires = NULL WHERE reset_token = ?");
             $cleanupStmt->execute([$token]);
         } else {
@@ -49,7 +46,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user) {
     $password = $_POST['password'] ?? '';
     $confirmPassword = $_POST['confirm_password'] ?? '';
 
-    // Comprehensive password validation
     $errors = [];
     
     if (strlen($password) < 8) {

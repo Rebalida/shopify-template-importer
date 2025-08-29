@@ -1,41 +1,81 @@
 <?php
     session_start();
     require_once '../auth/middleware.php';
+    // Configurable row/column settings
+    $headerStartRow = 9; // Headers start at row 9 (1-based)
+    $headerStartColumn = 1; 
+    
     checkAuth();
 
-    $rows = [];
+   $rows = [];
     $header = [];
     $fileName = null;
     $totalRows = 0;
     $previewLimit = 20;
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
-        $uploadDir = __DIR__ . '/../storage/uploads/';
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0777, true);
-        }
-
-        $fileName = time() . "_" . basename($_FILES['csv_file']['name']);
-        $filePath = $uploadDir . $fileName;
-
-        if (move_uploaded_file($_FILES['csv_file']['tmp_name'], $filePath)) {
-            if (($handle = fopen($filePath, "r")) !== false) {
-                $header = fgetcsv($handle, 1000, ",");
-                $count = 0;
-                while (($data = fgetcsv($handle, 1000, ",")) !== false) {
-                    if ($count < $previewLimit) {
-                        $rows[] = $data;
-                    }
-                    $count++;
-                    $totalRows++;
-                }
-                fclose($handle);
-            }
+        // Validate file type
+        $uploadedFile = $_FILES['csv_file'];
+        $fileExtension = strtolower(pathinfo($uploadedFile['name'], PATHINFO_EXTENSION));
+        
+        if ($fileExtension !== 'csv') {
+            $error = "Please upload a CSV file only.";
         } else {
-            $error = "File upload failed.";
+            $uploadDir = __DIR__ . '/../storage/uploads/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0777, true);
+            }
+
+            $fileName = time() . "_" . basename($uploadedFile['name']);
+            $filePath = $uploadDir . $fileName;
+
+            if (move_uploaded_file($uploadedFile['tmp_name'], $filePath)) {
+                if (($handle = fopen($filePath, "r")) !== false) {
+                    $currentRow = 1;
+                    $headerFound = false;
+                    
+                    // Skip rows until we reach the header start row
+                    while ($currentRow < $headerStartRow && ($data = fgetcsv($handle, 1000, ",")) !== false) {
+                        $currentRow++;
+                    }
+                    
+                    // Read header from the specified row
+                    if ($currentRow == $headerStartRow && ($headerData = fgetcsv($handle, 1000, ",")) !== false) {
+                        // Extract header starting from specified column (convert 1-based to 0-based)
+                        $header = array_slice($headerData, $headerStartColumn - 1);
+                        $headerFound = true;
+                        $currentRow++;
+                    }
+                    
+                    if (!$headerFound) {
+                        $error = "Could not find header at row {$headerStartRow} or file is empty.";
+                        fclose($handle);
+                    } else {
+                        $dataRowCount = 0;
+                        
+                        // Read data rows
+                        while (($data = fgetcsv($handle, 1000, ",")) !== false) {
+                            // Extract data starting from the same column as headers
+                            $rowData = array_slice($data, $headerStartColumn - 1, count($header));
+                            
+                            if ($dataRowCount < $previewLimit) {
+                                $rows[] = $rowData;
+                            }
+                            $dataRowCount++;
+                            $totalRows++;
+                        }
+                        fclose($handle);
+                    }
+                } else {
+                    $error = "Could not open the uploaded file.";
+                }
+            } else {
+                $error = "File upload failed.";
+            }
         }
     }
 ?>
+
 <?php include '../templates/header.php'; ?>
 
     <div class="max-w-6xl mx-auto px-4 py-8">
@@ -183,9 +223,17 @@
                     <i class="fa-solid fa-file-csv mr-2"></i>
                     Convert to Shopify CSV
                 </a>
+                <a href="convert/run_grs.php?file=<?php echo urlencode($fileName); ?>"
+                    class="flex items-center justify-center px-8 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold rounded-xl hover:from-green-700 hover:to-green-800 transform hover:scale-105 transition-all duration-200 shadow-lg">
+                    <i class="fa-solid fa-file-csv mr-2"></i>
+                    Convert to GRS CSV
+                </a>
+
+                
                 <button type="button"
+                    disabled
                     onclick="startImport('<?php echo urlencode($fileName); ?>')"
-                    class="flex items-center justify-center px-8 py-4 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-semibold rounded-xl hover:from-indigo-700 hover:to-indigo-800 transform hover:scale-105 transition-all duration-200 shadow-lg">
+                    class="flex items-center justify-center px-8 py-4 bg-gradient-to-r from-gray-400 to-gray-500 text-white font-semibold rounded-xl cursor-not-allowed opacity-50">
                     Direct Import to Shopify
                 </button>
 
@@ -234,6 +282,14 @@
         fileInput.addEventListener('change', function(e) {
             const fileName = e.target.files[0]?.name;
             if (fileName) {
+                // Validate file extension on client side
+                const fileExtension = fileName.split('.').pop().toLowerCase();
+                if (fileExtension !== 'csv') {
+                    alert('Please select a CSV file only.');
+                    e.target.value = '';
+                    return;
+                }
+                
                 const label = e.target.closest('label');
                 const textElement = label.querySelector('p');
                 textElement.innerHTML = `<span class="font-semibold text-primary-600">${fileName}</span> selected`;
@@ -275,8 +331,16 @@
             const files = dt.files;
             
             if (files.length > 0) {
+                const file = files[0];
+                const fileExtension = file.name.split('.').pop().toLowerCase();
+                
+                if (fileExtension !== 'csv') {
+                    alert('Please drop a CSV file only.');
+                    return;
+                }
+                
                 fileInput.files = files;
-                const fileName = files[0].name;
+                const fileName = file.name;
                 const textElement = dropZone.querySelector('p');
                 textElement.innerHTML = `<span class="font-semibold text-primary-600">${fileName}</span> selected`;
             }
