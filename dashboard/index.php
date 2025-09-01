@@ -87,7 +87,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                     </svg>
                 </div>
-                <h2 class="text-2xl font-semibold text-gray-900 mb-2">Upload CSV File</h2>
+                <h2 class="text-2xl font-semibold text-gray-900 mb-2">Upload Master Template CSV File</h2>
                 <p class="text-gray-600">Select a CSV file to preview and convert to Shopify format</p>
             </div>
 
@@ -231,9 +231,8 @@
 
                 
                 <button type="button"
-                    disabled
                     onclick="startImport('<?php echo urlencode($fileName); ?>')"
-                    class="flex items-center justify-center px-8 py-4 bg-gradient-to-r from-gray-400 to-gray-500 text-white font-semibold rounded-xl cursor-not-allowed opacity-50">
+                     class="flex items-center justify-center px-8 py-4 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-semibold rounded-xl hover:from-indigo-700 hover:to-indigo-800 transform hover:scale-105 transition-all duration-200 shadow-lg">
                     Direct Import to Shopify
                 </button>
 

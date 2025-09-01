@@ -43,54 +43,62 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Login - Shopify Template Importer</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-light">
-    <div class="container d-flex justify-content-center align-items-center min-vh-100">
-        <div class="card shadow-lg p-4" style="max-width: 400px; width: 100%; border-radius: 15px;">
-            <h3 class="text-center mb-4">Sign In</h3>
-            
-            <?php if (!empty($errors)): ?>
-                <div class="alert alert-danger">
-                    <?php foreach ($errors as $error): ?>
-                        <div><?php echo htmlspecialchars($error); ?></div>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="bg-white shadow-lg rounded-2xl p-6 w-full max-w-md">
+        <h3 class="text-xl font-semibold text-center mb-4">Sign In</h3>
+        
+        <?php if (!empty($errors)): ?>
+            <div class="mb-4 p-3 rounded-md bg-red-100 text-red-700 border border-red-200">
+                <?php foreach ($errors as $error): ?>
+                    <div><?php echo htmlspecialchars($error); ?></div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
 
-            <form method="POST" class="needs-validation" novalidate>
-                <div class="mb-3">
-                    <label for="email" class="form-label">Email address</label>
-                    <input type="email" 
-                           name="email" 
-                           class="form-control" 
-                           id="email" 
-                           required 
-                           autocomplete="email">
-                </div>
+        <form method="POST" class="space-y-4" novalidate>
+            <div>
+                <label for="email" class="block text-sm font-medium text-gray-700">Email address</label>
+                <input type="email" 
+                       name="email" 
+                       id="email" 
+                       required 
+                       autocomplete="email"
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-300 focus:ring-opacity-50 p-3">
+            </div>
 
-                <div class="mb-3">
-                    <label for="password" class="form-label">Password</label>
-                    <input type="password" 
-                           name="password" 
-                           class="form-control" 
-                           id="password" 
-                           required>
-                </div>
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                <input type="password" 
+                       name="password" 
+                       id="password" 
+                       required
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-300 focus:ring-opacity-50 p-3">
+            </div>
 
-                <div class="mb-3 form-check">
-                    <input type="checkbox" name="remember" class="form-check-input" id="remember">
-                    <label class="form-check-label" for="remember">Remember me</label>
-                </div>
+            <div class="flex items-center">
+                <input type="checkbox" 
+                       name="remember" 
+                       id="remember"
+                       class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-300 focus:ring-opacity-50">
+                <label class="ml-2 block text-sm text-gray-700" for="remember">Remember me</label>
+            </div>
 
-                <div class="d-grid gap-2">
-                    <button type="submit" class="btn btn-primary">Sign In</button>
-                </div>
-            </form>
+            <button type="submit" 
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition">
+                Sign In
+            </button>
 
-            <p class="text-center mt-3">
-                <a href="forgot_password.php" class="text-decoration-none">Forgot password?</a>
-            </p>
+            <div class="text-center mt-4">
+              <a href="forgot_password.php" class="text-blue-600 hover:underline text-sm">Forgot password?</a>
+              <span class="mx-2 text-gray-400">|</span>
+              <a href="signup.php" class="text-blue-600 hover:underline text-sm">Create account</a>
+          </div>
+        </form>
+
+        <div class="text-center mt-4">
+            <a href="forgot_password.php" class="text-blue-600 hover:underline text-sm">Forgot password?</a>
         </div>
     </div>
 </body>

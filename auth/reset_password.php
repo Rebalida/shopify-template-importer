@@ -120,148 +120,109 @@ if ($user && isset($user['reset_token_expires'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Reset Password - Shopify Template Importer</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-    <style>
-        .card {
-            border: none;
-            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-        }
-        .btn-primary {
-            background-color: #007bff;
-            border-color: #007bff;
-        }
-        .btn-primary:hover {
-            background-color: #0056b3;
-            border-color: #0056b3;
-        }
-        .password-requirements {
-            font-size: 0.875rem;
-            color: #6c757d;
-        }
-        .password-requirements .requirement {
-            display: flex;
-            align-items: center;
-            margin-bottom: 0.25rem;
-        }
-        .password-requirements .requirement.valid {
-            color: #198754;
-        }
-        .password-requirements .requirement.invalid {
-            color: #dc3545;
-        }
-        .password-toggle {
-            cursor: pointer;
-        }
-    </style>
 </head>
-<body class="bg-light">
-    <div class="container d-flex justify-content-center align-items-center min-vh-100">
-        <div class="card shadow-lg p-4" style="max-width: 450px; width: 100%; border-radius: 15px;">
-            <div class="text-center mb-4">
-                <h3 class="mb-3">Reset Your Password</h3>
-                <?php if ($user): ?>
-                    <p class="text-muted">Enter a new password for your account.</p>
-                    <?php if ($timeRemaining): ?>
-                        <p class="text-warning small">
-                            <i class="bi bi-clock"></i> <?php echo $timeRemaining; ?>
-                        </p>
-                    <?php endif; ?>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="bg-white shadow-lg rounded-2xl p-6 w-full max-w-md">
+        <div class="text-center mb-6">
+            <h3 class="text-xl font-semibold mb-2">Reset Your Password</h3>
+            <?php if ($user): ?>
+                <p class="text-gray-500">Enter a new password for your account.</p>
+                <?php if ($timeRemaining): ?>
+                    <p class="text-yellow-600 text-sm mt-2">
+                        <i class="bi bi-clock"></i> <?php echo $timeRemaining; ?>
+                    </p>
                 <?php endif; ?>
+            <?php endif; ?>
+        </div>
+        
+        <?php if ($message): ?>
+            <div class="mb-4 p-3 rounded-md <?php echo $messageType === 'success' ? 'bg-green-100 text-green-700' : ($messageType === 'warning' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'); ?>">
+                <?php echo $message; ?>
             </div>
-            
-            <?php if ($message): ?>
-                <div class="alert alert-<?php echo htmlspecialchars($messageType); ?> alert-dismissible fade show" role="alert">
-                    <?php echo $message; // Allow HTML for error lists ?>
-                    <?php if ($messageType !== 'success'): ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    <?php endif; ?>
-                </div>
-                <?php if ($messageType === 'success'): ?>
-                    <div class="text-center mb-3">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Redirecting...</span>
-                        </div>
-                        <p class="mt-2 text-muted">Redirecting to login page...</p>
-                    </div>
-                <?php endif; ?>
-            <?php endif; ?>
-
-            <?php if ($user && $messageType !== 'success'): ?>
-                <form method="POST" class="needs-validation" novalidate id="resetForm">
-                    <div class="mb-3">
-                        <label for="password" class="form-label">New Password</label>
-                        <div class="input-group">
-                            <input type="password" 
-                                   name="password" 
-                                   class="form-control form-control" 
-                                   id="password" 
-                                   required 
-                                   minlength="8"
-                                   autocomplete="new-password"
-                                   placeholder="Enter new password">
-                            <button class="btn btn-outline-secondary password-toggle" type="button" onclick="togglePassword('password')">
-                                <i class="bi bi-eye" id="password-icon"></i>
-                            </button>
-                        </div>
-                        <div class="invalid-feedback">
-                            Password must meet all requirements below.
-                        </div>
-                    </div>
-
-                    <div class="mb-3 password-requirements">
-                        <small>Password must contain:</small>
-                        <div class="requirement" id="req-length">
-                            <i class="bi bi-x-circle me-1"></i> At least 8 characters
-                        </div>
-                        <div class="requirement" id="req-uppercase">
-                            <i class="bi bi-x-circle me-1"></i> One uppercase letter
-                        </div>
-                        <div class="requirement" id="req-lowercase">
-                            <i class="bi bi-x-circle me-1"></i> One lowercase letter
-                        </div>
-                        <div class="requirement" id="req-number">
-                            <i class="bi bi-x-circle me-1"></i> One number
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="confirm_password" class="form-label">Confirm Password</label>
-                        <div class="input-group">
-                            <input type="password" 
-                                   name="confirm_password" 
-                                   class="form-control form-control" 
-                                   id="confirm_password" 
-                                   required
-                                   autocomplete="new-password"
-                                   placeholder="Confirm new password">
-                            <button class="btn btn-outline-secondary password-toggle" type="button" onclick="togglePassword('confirm_password')">
-                                <i class="bi bi-eye" id="confirm_password-icon"></i>
-                            </button>
-                        </div>
-                        <div class="invalid-feedback">
-                            Please confirm your password.
-                        </div>
-                        <div id="password-match" class="mt-1 small"></div>
-                    </div>
-
-                    <div class="d-grid gap-2 mb-3">
-                        <button type="submit" class="btn btn-primary btn">Update Password</button>
-                    </div>
-                </form>
-            <?php elseif ($messageType === 'danger' || $messageType === 'warning'): ?>
-                <div class="text-center mb-3">
-                    <a href="forgot_password.php" class="btn btn-primary btn">Request New Reset Link</a>
+            <?php if ($messageType === 'success'): ?>
+                <div class="text-center mb-4">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
+                    <p class="mt-2 text-gray-500">Redirecting to login page...</p>
                 </div>
             <?php endif; ?>
+        <?php endif; ?>
 
+        <?php if ($user && $messageType !== 'success'): ?>
+            <form method="POST" class="space-y-4" novalidate id="resetForm">
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">New Password</label>
+                    <div class="relative">
+                        <input type="password" 
+                               name="password" 
+                               id="password" 
+                               required 
+                               minlength="8"
+                               autocomplete="new-password"
+                               placeholder="Enter new password"
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-300 focus:ring-opacity-50 pr-10 p-3">
+                        <button type="button" 
+                                onclick="togglePassword('password')" 
+                                class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                            <i class="bi bi-eye text-gray-500" id="password-icon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="space-y-2 text-sm text-gray-600">
+                    <p class="font-medium">Password must contain:</p>
+                    <div id="req-length" class="flex items-center">
+                        <i class="bi bi-x-circle mr-2"></i> At least 8 characters
+                    </div>
+                    <div id="req-uppercase" class="flex items-center">
+                        <i class="bi bi-x-circle mr-2"></i> One uppercase letter
+                    </div>
+                    <div id="req-lowercase" class="flex items-center">
+                        <i class="bi bi-x-circle mr-2"></i> One lowercase letter
+                    </div>
+                    <div id="req-number" class="flex items-center">
+                        <i class="bi bi-x-circle mr-2"></i> One number
+                    </div>
+                </div>
+
+                <div>
+                    <label for="confirm_password" class="block text-sm font-medium text-gray-700">Confirm Password</label>
+                    <div class="relative">
+                        <input type="password" 
+                               name="confirm_password" 
+                               id="confirm_password" 
+                               required
+                               autocomplete="new-password"
+                               placeholder="Confirm new password"
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-300 focus:ring-opacity-50 pr-10 p-3">
+                        <button type="button" 
+                                onclick="togglePassword('confirm_password')" 
+                                class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                            <i class="bi bi-eye text-gray-500" id="confirm_password-icon"></i>
+                        </button>
+                    </div>
+                    <div id="password-match" class="mt-1 text-sm"></div>
+                </div>
+
+                <button type="submit" 
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition">
+                    Update Password
+                </button>
+            </form>
+        <?php elseif ($messageType === 'danger' || $messageType === 'warning'): ?>
             <div class="text-center">
-                <a href="login.php" class="text-decoration-none">← Back to login</a>
+                <a href="forgot_password.php" 
+                   class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition">
+                    Request New Reset Link
+                </a>
             </div>
+        <?php endif; ?>
+
+        <div class="text-center mt-4">
+            <a href="login.php" class="text-blue-600 hover:underline">← Back to login</a>
         </div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Password visibility toggle
         function togglePassword(fieldId) {
