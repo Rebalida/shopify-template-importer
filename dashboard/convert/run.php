@@ -3,7 +3,6 @@ session_start();
 require_once '../../auth/middleware.php';
 checkAuth();
 
-
 // Paths
 $fileName = $_GET['file'] ?? null;
 if (!$fileName) {
@@ -17,6 +16,15 @@ if (!file_exists($inputPath)) {
     exit('File not found.');
 }
 
+// Determine template type from filename prefix
+$templateType = 'master'; // default
+if (strpos($fileName, 'grs_') === 0) {
+    $templateType = 'grs';
+} elseif (strpos($fileName, 'master_') === 0) {
+    $templateType = 'master';
+}
+
+// Configuration
 $config = [
     'default_status' => 'draft',
     'default_published' => 'TRUE',
@@ -30,19 +38,59 @@ $config = [
     'default_gift_card' => 'FALSE',
     'default_image_position' => '1',
     'default_option1_name' => 'Title',
-    'default_option1_value' => 'Default Title'
+    'default_option1_value' => 'Default Title',
+    'include_compare_at_price' => true,
+    'auto_generate_seo' => true,
+    'max_tag_length' => 255
 ];
 
+// Master template specific settings
+$headerStartRow = 9; // Headers start at row 9 (1-based)
+$headerStartColumn = 1; // Headers start at column A (1-based)
+
 // Helper functions
+function to_handle($str) {
+    $h = strtolower(trim($str));
+    $h = preg_replace('/\s+/', '-', $h);           
+    $h = preg_replace('/[^a-z0-9\-]/i', '-', $h);  
+    $h = preg_replace('/-+/', '-', $h);
+    $h = trim($h, '-'); 
+    return $h ?: 'product-' . uniqid();
+}
+
 function getValue($row, $columnName, $headers, $fallback = '') {
-    $columnIndex = array_search($columnName, $headers);
-    if ($columnIndex === false) return $fallback;
-    return isset($row[$columnIndex]) && trim($row[$columnIndex]) !== '' ? trim($row[$columnIndex]) : $fallback;
+    if (is_array($headers)) {
+        $columnIndex = array_search($columnName, $headers);
+        if ($columnIndex === false) return $fallback;
+        return isset($row[$columnIndex]) && trim($row[$columnIndex]) !== '' ? trim($row[$columnIndex]) : $fallback;
+    } else {
+        // For GRS template where $headers is associative array
+        $value = trim($row[$columnName] ?? '');
+        return $value !== '' ? $value : $fallback;
+    }
 }
 
 function cleanNumeric($value, $fallback = '0') {
-    $cleaned = trim($value);
-    return (is_numeric($cleaned) && $cleaned >= 0) ? $cleaned : $fallback;
+    if ($value === null || $value === '') {
+        return $fallback;
+    }
+
+    // Remove everything except digits, dot, minus
+    $cleaned = preg_replace('/[^\d\.\-]/u', '', $value);
+
+    if ($cleaned === '' || !is_numeric($cleaned)) {
+        return $fallback;
+    }
+
+    return formatDecimal($cleaned);
+}
+
+
+function cleanBoolean($value, $fallback = 'FALSE') {
+    $cleaned = strtolower(trim($value));
+    if (in_array($cleaned, ['yes', 'true', '1', 'on', 'active'])) return 'TRUE';
+    if (in_array($cleaned, ['no', 'false', '0', 'off', 'inactive'])) return 'FALSE';
+    return $fallback;
 }
 
 function cleanUrl($url) {
@@ -59,7 +107,24 @@ function generateSeoDescription($description, $maxLength = 160) {
     return strlen($cleaned) <= $maxLength ? $cleaned : substr($cleaned, 0, $maxLength - 3) . '...';
 }
 
-// Shopify CSV header
+function formatDecimal($number, $decimals = 4) {
+    return number_format((float)$number, $decimals, '.', '');
+}
+
+// Category to Product Type mapping
+$productTypeMap = [
+    'KitchenandHomewares' => 'Kitchen & Dining',
+    'Kitchen' => 'Kitchen & Dining',
+    'Homewares' => 'Home & Garden',
+    '75' => 'Beauty & Personal Care',
+    '68' => 'Sports & Recreation',
+    '14' => 'Beauty & Personal Care',
+    'Beauty' => 'Beauty & Personal Care',
+    'Sports' => 'Sports & Recreation',
+    'Golf' => 'Sports & Recreation'
+];
+
+// Shopify CSV header (unified for both templates)
 $header = [
     'Handle','Title','Body (HTML)','Vendor','Product Category','Type','Tags','Published',
     'Option1 Name','Option1 Value','Option2 Name','Option2 Value','Option3 Name','Option3 Value',
@@ -90,70 +155,177 @@ $headers = [];
 $rowCount = 0;
 $errorLog = [];
 
-while (($row = fgetcsv($handle)) !== false) {
-    $rowCount++;
-    
-    // Get headers from row 9
-    if ($rowCount == 9) {
-        $headers = array_map('trim', $row);
-        continue;
+if ($templateType === 'master') {
+    // MASTER TEMPLATE PROCESSING
+    while (($row = fgetcsv($handle)) !== false) {
+        $rowCount++;
+        
+        // Get headers from row 9
+        if ($rowCount == 9) {
+            $headers = array_slice($row, $headerStartColumn - 1);
+            $headers = array_map('trim', $headers);
+            continue;
+        }
+        
+        // Skip rows before data starts
+        if ($rowCount < 10) {
+            continue;
+        }
+
+        $title = getValue($row, 'Product Name', $headers);
+        if (empty($title)) {
+            $errorLog[] = "Row $rowCount: Missing product title, skipping";
+            continue;
+        }
+
+        // Extract data starting from the same column as headers
+        $rowData = array_slice($row, $headerStartColumn - 1, count($headers));
+
+        // Combine Features and Specifications for Body HTML
+        $bodyHtml = getValue($rowData, 'Features', $headers) . "\n\n" . 
+                    getValue($rowData, 'Specifications', $headers);
+
+        $outRow = [
+            getValue($rowData, 'CODE', $headers), // Handle
+            $title,
+            htmlspecialchars($bodyHtml, ENT_QUOTES, 'UTF-8'),
+            getValue($rowData, 'Supplier', $headers),
+            '',
+            getValue($rowData, 'Brand', $headers),
+            getValue($rowData, 'Brand', $headers),
+            $config['default_published'],
+            $config['default_option1_name'],
+            $config['default_option1_value'],
+            '',
+            '',
+            '',
+            '',
+            getValue($rowData, 'CODE', $headers),
+            cleanNumeric(getValue($rowData, 'Weight in Kg', $headers)) * 1000,
+            $config['default_inventory_tracker'],
+            $config['default_inventory_qty'],
+            $config['default_inventory_policy'],
+            $config['default_fulfillment_service'],
+            formatDecimal(cleanNumeric(getValue($rowData, 'Acheiva Cost ex GST (After Discount)', $headers))),
+            cleanNumeric(getValue($rowData, 'RRP', $headers)),
+            $config['default_requires_shipping'],
+            $config['default_taxable'],
+            getValue($rowData, 'EAN-BARCODE', $headers),
+            cleanUrl(getValue($rowData, 'Image', $headers)),
+            $config['default_image_position'],
+            $title,
+            $config['default_gift_card'],
+            generateSeoTitle($title),
+            generateSeoDescription($bodyHtml),
+            'active'
+        ];
+
+        fputcsv($out, $outRow);
+        
+        if ($rowCount % 100 === 0) {
+            ob_flush();
+            flush();
+        }
     }
-    
-    // Skip rows before data starts
-    if ($rowCount < 10) {
-        continue;
+
+} else {
+    // GRS TEMPLATE PROCESSING
+    $grsHeader = fgetcsv($handle, 0, ',');
+    if (!$grsHeader) {
+        http_response_code(400);
+        exit('GRS CSV has no header.');
     }
 
-    $title = getValue($row, 'Product Name', $headers);
-    if (empty($title)) {
-        $errorLog[] = "Row $rowCount: Missing product title, skipping";
-        continue;
-    }
+    // Process each GRS row
+    while (($row = fgetcsv($handle, 0, ',')) !== false) {
+        $rowCount++;
+        $r = array_combine($grsHeader, $row);
+        
+        $title = getValue($r, 'Reward Name', null);
+        if (empty($title)) {
+            $errorLog[] = "Row $rowCount: Missing product title, skipping";
+            continue;
+        }
+        
+        $desc = getValue($r, 'Reward Description', null);
+        $vendor = getValue($r, 'Brand', null);
+        $model = getValue($r, 'Model', null);
+        $sku = getValue($r, 'SKU', null);
+        $productCost = cleanNumeric(getValue($r, 'Product Cost', null), '0');
+        $msrp = cleanNumeric(getValue($r, 'MSRP', null), '');
+        $img = cleanUrl(getValue($r, 'Image URL', null));
+        $statusRaw = strtolower(getValue($r, 'Status', null, $config['default_status']));
+        $status = in_array($statusRaw, ['active','draft','archived']) ? $statusRaw : $config['default_status'];
+        $published = ($statusRaw === 'active') ? 'TRUE' : $config['default_published'];
+        $upc = getValue($r, 'Universal Product Code (UPC)', null);
+        $ean = getValue($r, 'European Article Number (EAN)', null);
+        $categoryCode = getValue($r, 'Category Code', null);
+        
+        $product_handle = to_handle($title);
+        $productType = $productTypeMap[$categoryCode] ?? '';
+        
+        $tags = array_filter([
+            $vendor ? 'brand:' . strtolower($vendor) : null,
+            $model,
+            $categoryCode ? 'category:' . $categoryCode : null,
+            $ean ? 'ean:' . $ean : null,
+            $statusRaw === 'active' ? 'available' : null
+        ]);
+        $tagsCsv = substr(implode(', ', $tags), 0, $config['max_tag_length']);
+        
+        $variantPrice = $productCost;
+        $compareAt = '';
+        if ($config['include_compare_at_price'] && is_numeric($msrp) && $msrp > $productCost) {
+            $compareAt = $msrp;
+        }
+        
+        $seoTitle = $config['auto_generate_seo'] ? generateSeoTitle($title) : '';
+        $seoDescription = $config['auto_generate_seo'] ? generateSeoDescription($desc) : '';
+        $imageAlt = !empty($img) ? $title : '';
+        $option1Name = $config['default_option1_name'];
+        $option1Value = !empty($model) ? $model : $config['default_option1_value'];
+        
+        $outRow = [
+            $product_handle,
+            $title,
+            htmlspecialchars($desc, ENT_QUOTES, 'UTF-8'),
+            $vendor,
+            '',
+            $productType,
+            $tagsCsv,
+            $published,
+            $option1Name,
+            $option1Value,
+            '',
+            '',
+            '',
+            '',
+            $sku,
+            cleanNumeric(getValue($r, 'Weight', null), ''),
+            $config['default_inventory_tracker'],
+            cleanNumeric(getValue($r, 'Quantity', null), '0'),
+            $config['default_inventory_policy'],
+            $config['default_fulfillment_service'],
+            $variantPrice,
+            $compareAt,
+            $config['default_requires_shipping'],
+            $config['default_taxable'],
+            $upc,
+            $img,
+            $config['default_image_position'],
+            $imageAlt,
+            $config['default_gift_card'],
+            $seoTitle,
+            $seoDescription,
+            $status
+        ];
 
-    // Combine Features and Specifications for Body HTML
-    $bodyHtml = getValue($row, 'Features', $headers) . "\n\n" . 
-                getValue($row, 'Specifications', $headers);
-
-    $outRow = [
-        getValue($row, 'CODE', $headers), // Handle
-        $title,
-        htmlspecialchars($bodyHtml, ENT_QUOTES, 'UTF-8'),
-        getValue($row, 'Supplier', $headers),
-        '',
-        getValue($row, 'Brand', $headers),
-        getValue($row, 'Brand', $headers),
-        $config['default_published'],
-        $config['default_option1_name'],
-        $config['default_option1_value'],
-        '',
-        '',
-        '',
-        '',
-        getValue($row, 'CODE', $headers),
-        cleanNumeric(getValue($row, 'Weight in Kg', $headers)) * 1000,
-        $config['default_inventory_tracker'],
-        $config['default_inventory_qty'],
-        $config['default_inventory_policy'],
-        $config['default_fulfillment_service'],
-        cleanNumeric(getValue($row, 'Trade ex GST', $headers)),
-        cleanNumeric(getValue($row, 'RRP', $headers)),
-        $config['default_requires_shipping'],
-        $config['default_taxable'],
-        getValue($row, 'EAN-BARCODE', $headers),
-        cleanUrl(getValue($row, 'Image', $headers)),
-        $config['default_image_position'],
-        $title,
-        $config['default_gift_card'],
-        generateSeoTitle($title),
-        generateSeoDescription($bodyHtml),
-        'active'
-    ];
-
-    fputcsv($out, $outRow);
-    
-    if ($rowCount % 100 === 0) {
-        ob_flush();
-        flush();
+        fputcsv($out, $outRow);
+        
+        if ($rowCount % 100 === 0) {
+            ob_flush();
+            flush();
+        }
     }
 }
 

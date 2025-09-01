@@ -96,10 +96,6 @@
               <a href="signup.php" class="text-blue-600 hover:underline text-sm">Create account</a>
           </div>
         </form>
-
-        <div class="text-center mt-4">
-            <a href="forgot_password.php" class="text-blue-600 hover:underline text-sm">Forgot password?</a>
-        </div>
     </div>
 </body>
 </html>
