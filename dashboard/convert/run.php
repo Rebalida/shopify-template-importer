@@ -17,7 +17,7 @@ if (!file_exists($inputPath)) {
 }
 
 // Determine template type from filename prefix
-$templateType = 'master'; // default
+$templateType = 'master';
 if (strpos($fileName, 'grs_') === 0) {
     $templateType = 'grs';
 } elseif (strpos($fileName, 'master_') === 0) {
@@ -126,13 +126,36 @@ $productTypeMap = [
 
 // Shopify CSV header (unified for both templates)
 $header = [
-    'Handle','Title','Body (HTML)','Vendor','Product Category','Type','Tags','Published',
-    'Option1 Name','Option1 Value','Option2 Name','Option2 Value','Option3 Name','Option3 Value',
-    'Variant SKU','Variant Grams','Variant Inventory Tracker','Variant Inventory Qty',
-    'Variant Inventory Policy','Variant Fulfillment Service','Variant Price',
-    'Variant Compare At Price','Variant Requires Shipping','Variant Taxable',
-    'Variant Barcode','Image Src','Image Position','Image Alt Text','Gift Card',
-    'SEO Title','SEO Description','Status'
+    'Handle', 'Title', 'Body (HTML)', 'Vendor', 'Product Category', 'Type', 'Tags', 'Published',
+    'Option1 Name', 'Option1 Value', 'Option1 Linked To',
+    'Option2 Name', 'Option2 Value', 'Option2 Linked To',
+    'Option3 Name', 'Option3 Value', 'Option3 Linked To',
+    'Variant SKU', 'Variant Grams', 'Variant Inventory Tracker', 'Variant Inventory Qty',
+    'Variant Inventory Policy', 'Variant Fulfillment Service', 'Variant Price', 
+    'Variant Compare At Price', 'Variant Requires Shipping', 'Variant Taxable',
+    'Variant Barcode', 'Image Src', 'Image Position', 'Image Alt Text', 'Gift Card',
+    'SEO Title', 'SEO Description',
+    'Amazon Standard ID (ASIN) (product.metafields.grs.asin)',
+    'Category Code (product.metafields.grs.category_code)',
+    'Handling Cost (product.metafields.grs.handling_cost)',
+    'Is On Sale (product.metafields.grs.is_on_sale)',
+    'New Duration (product.metafields.grs.new_duration)',
+    'Regular Handling Cost (product.metafields.grs.regular_handling_cost)',
+    'Regular Product Cost (product.metafields.grs.regular_product_cost)',
+    'Regular Service Charge (product.metafields.grs.regular_service_charge)',
+    'Regular Shipping Cost (product.metafields.grs.regular_shipping_cost)',
+    'Release Date (product.metafields.grs.release_date)',
+    'Service Charge (product.metafields.grs.service_charge)',
+    'Shipping Cost (product.metafields.grs.shipping_cost)',
+    'Accessory size (product.metafields.shopify.accessory-size)',
+    'Age group (product.metafields.shopify.age-group)',
+    'Bag/Case features (product.metafields.shopify.bag-case-features)',
+    'Bag/Case material (product.metafields.shopify.bag-case-material)',
+    'Bag/Case storage features (product.metafields.shopify.bag-case-storage-features)',
+    'Carry options (product.metafields.shopify.carry-options)',
+    'Color (product.metafields.shopify.color-pattern)',
+    'Target gender (product.metafields.shopify.target-gender)',
+    'Variant Image', 'Variant Weight Unit', 'Variant Tax Code', 'Cost per item', 'Status'
 ];
 
 // For streaming download
@@ -296,10 +319,13 @@ if ($templateType === 'master') {
             $published,
             $option1Name,
             $option1Value,
-            '',
-            '',
-            '',
-            '',
+            '', // Option1 Linked To
+            '', // Option2 Name
+            '', // Option2 Value
+            '', // Option2 Linked To
+            '', // Option3 Name
+            '', // Option3 Value
+            '', // Option3 Linked To
             $sku,
             cleanNumeric(getValue($r, 'Weight', null), ''),
             $config['default_inventory_tracker'],
@@ -317,7 +343,31 @@ if ($templateType === 'master') {
             $config['default_gift_card'],
             $seoTitle,
             $seoDescription,
-            $status
+            getValue($r, 'Amazon Standard ID Number (ASIN)', null), 
+            getValue($r, 'Category Code', null),
+            getValue($r, 'Handling Cost', null),
+            getValue($r, 'Is On Sale', null),
+            getValue($r, 'New Duration', null),
+            getValue($r, 'Regular Handling Cost', null),
+            getValue($r, 'Regular Product Cost', null),
+            getValue($r, 'Regular Service Charge', null),
+            getValue($r, 'Regular Shipping Cost', null),
+            getValue($r, 'Release Date', null),
+            getValue($r, 'Service Charge', null),
+            getValue($r, 'Shipping Cost', null),
+            '', // Accessory size
+            '', // Age group
+            '', // Bag/Case features
+            '', // Bag/Case material
+            '', // Bag/Case storage features
+            '', // Carry options
+            '', // Color
+            '', // Target gender
+            '', // Variant Image
+            $config['default_weight_unit'], // Variant Weight Unit
+            '',
+            $productCost, // Cost per item
+            $status // Status
         ];
 
         fputcsv($out, $outRow);
