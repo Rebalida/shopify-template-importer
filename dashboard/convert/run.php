@@ -1,3 +1,4 @@
+
 <?php
 session_start();
 require_once '../../auth/middleware.php';
@@ -41,7 +42,8 @@ $config = [
     'default_option1_value' => 'Default Title',
     'include_compare_at_price' => true,
     'auto_generate_seo' => true,
-    'max_tag_length' => 255
+    'max_tag_length' => 255,
+    'max_file_size_mb' => 15 // Maximum file size in MB
 ];
 
 // Master template specific settings
@@ -84,7 +86,6 @@ function cleanNumeric($value, $fallback = '0') {
 
     return formatDecimal($cleaned);
 }
-
 
 function cleanBoolean($value, $fallback = 'FALSE') {
     $cleaned = strtolower(trim($value));
@@ -155,17 +156,32 @@ $header = [
     'Carry options (product.metafields.shopify.carry-options)',
     'Color (product.metafields.shopify.color-pattern)',
     'Target gender (product.metafields.shopify.target-gender)',
-    'Variant Image', 'Variant Weight Unit', 'Variant Tax Code', 'Cost per item', 'Status'
+    'Variant Image', 'Variant Weight Unit', 'Variant Tax Code', 'Cost per item', 'Status', 'Google Shopping / MPN (product.metafields.google.mpn)',
+    'Google Shopping / EAN (product.metafields.google.ean)'
 ];
 
-// For streaming download
-$outFile = 'shopify_products_' . date('Ymd_His') . '.csv';
-header('Content-Type: text/csv; charset=UTF-8');
-header('Content-Disposition: attachment; filename="' . $outFile . '"');
-header('Cache-Control: no-store');
+// File splitting variables
+$maxFileSizeBytes = $config['max_file_size_mb'] * 1024 * 1024; // Convert MB to bytes
+$currentFileSize = 0;
+$fileCount = 1;
+$tempDir = sys_get_temp_dir() . '/csv_split_' . uniqid();
+mkdir($tempDir);
 
-$out = fopen('php://output', 'w');
-fputcsv($out, $header);
+$outFiles = [];
+$currentFile = null;
+
+// Function to create new output file
+function createNewOutputFile($fileCount, $tempDir, $header) {
+    $fileName = "shopify_products_part{$fileCount}.csv";
+    $filePath = $tempDir . '/' . $fileName;
+    $file = fopen($filePath, 'w');
+    fputcsv($file, $header);
+    return ['handle' => $file, 'path' => $filePath, 'name' => $fileName, 'size' => strlen(implode(',', $header)) + 1];
+}
+
+// Create first output file
+$currentFile = createNewOutputFile($fileCount, $tempDir, $header);
+$outFiles[] = $currentFile;
 
 // Read CSV file
 $handle = fopen($inputPath, 'r');
@@ -240,15 +256,24 @@ if ($templateType === 'master') {
             $config['default_gift_card'],
             generateSeoTitle($title),
             generateSeoDescription($bodyHtml),
-            'active'
+            'active',
+            getValue($rowData, 'MPN', $headers),
+            getValue($rowData, 'EAN', $headers),
         ];
 
-        fputcsv($out, $outRow);
+        // Calculate row size
+        $rowSize = strlen(implode(',', $outRow)) + 1; // +1 for newline
         
-        if ($rowCount % 100 === 0) {
-            ob_flush();
-            flush();
+        // Check if we need to create a new file
+        if ($currentFile['size'] + $rowSize > $maxFileSizeBytes) {
+            fclose($currentFile['handle']);
+            $fileCount++;
+            $currentFile = createNewOutputFile($fileCount, $tempDir, $header);
+            $outFiles[] = $currentFile;
         }
+
+        fputcsv($currentFile['handle'], $outRow);
+        $currentFile['size'] += $rowSize;
     }
 
 } else {
@@ -319,13 +344,13 @@ if ($templateType === 'master') {
             $published,
             $option1Name,
             $option1Value,
-            '', // Option1 Linked To
-            '', // Option2 Name
-            '', // Option2 Value
-            '', // Option2 Linked To
-            '', // Option3 Name
-            '', // Option3 Value
-            '', // Option3 Linked To
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
             $sku,
             cleanNumeric(getValue($r, 'Weight', null), ''),
             $config['default_inventory_tracker'],
@@ -355,32 +380,83 @@ if ($templateType === 'master') {
             getValue($r, 'Release Date', null),
             getValue($r, 'Service Charge', null),
             getValue($r, 'Shipping Cost', null),
-            '', // Accessory size
-            '', // Age group
-            '', // Bag/Case features
-            '', // Bag/Case material
-            '', // Bag/Case storage features
-            '', // Carry options
-            '', // Color
-            '', // Target gender
-            '', // Variant Image
-            $config['default_weight_unit'], // Variant Weight Unit
             '',
-            $productCost, // Cost per item
-            $status // Status
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            $config['default_weight_unit'],
+            '',
+            $productCost,
+            $status,
+            getValue($r, 'Manufacturer Part Number (MPN)', null),
+            getValue($r, 'European Article Number (EAN)', null),
         ];
 
-        fputcsv($out, $outRow);
+        // Calculate row size
+        $rowSize = strlen(implode(',', $outRow)) + 1;
         
-        if ($rowCount % 100 === 0) {
-            ob_flush();
-            flush();
+        // Check if we need to create a new file
+        if ($currentFile['size'] + $rowSize > $maxFileSizeBytes) {
+            fclose($currentFile['handle']);
+            $fileCount++;
+            $currentFile = createNewOutputFile($fileCount, $tempDir, $header);
+            $outFiles[] = $currentFile;
         }
+
+        fputcsv($currentFile['handle'], $outRow);
+        $currentFile['size'] += $rowSize;
     }
 }
 
 fclose($handle);
-fclose($out);
+fclose($currentFile['handle']);
+
+// If only one file, send it directly
+if (count($outFiles) == 1) {
+    $file = $outFiles[0];
+    // Rename single file to just "shopify_export.csv"
+    $singleFileName = 'shopify_export.csv';
+    header('Content-Type: text/csv; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="' . $singleFileName . '"');
+    header('Content-Length: ' . filesize($file['path']));
+    readfile($file['path']);
+    unlink($file['path']);
+    rmdir($tempDir);
+} else {
+    // Multiple files - create ZIP archive
+    $zipFileName = 'shopify_export.zip';
+    $zipPath = $tempDir . '/' . $zipFileName;
+    
+    $zip = new ZipArchive();
+    if ($zip->open($zipPath, ZipArchive::CREATE) !== TRUE) {
+        http_response_code(500);
+        exit('Cannot create ZIP file');
+    }
+    
+    foreach ($outFiles as $file) {
+        $zip->addFile($file['path'], $file['name']);
+    }
+    
+    $zip->close();
+    
+    // Send ZIP file
+    header('Content-Type: application/zip');
+    header('Content-Disposition: attachment; filename="' . $zipFileName . '"');
+    header('Content-Length: ' . filesize($zipPath));
+    readfile($zipPath);
+    
+    // Cleanup
+    foreach ($outFiles as $file) {
+        unlink($file['path']);
+    }
+    unlink($zipPath);
+    rmdir($tempDir);
+}
 
 if (!empty($errorLog)) {
     error_log("CSV Conversion Errors: " . implode('; ', $errorLog));
