@@ -56,6 +56,23 @@
             background-color: #cbd5e0;
             border-radius: 4px;
         }
+        .nav-dropdown {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            min-width: 200px;
+            z-index: 50;
+        }
+        .nav-dropdown.active {
+            display: block;
+        }
+        .nav-item {
+            position: relative;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
@@ -63,18 +80,77 @@
     <div class="bg-white shadow-sm border-b">
         <div class="max-w-6xl mx-auto px-4 py-4">
             <div class="flex items-center justify-between">
+                <!-- Logo and Title -->
                 <div class="flex items-center space-x-3">
-                    <div class="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                        </svg>
+                    <a href="../dashboard/" class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </div>
+                        <h1 class="text-2xl font-bold text-gray-900">GRS Template Importer</h1>
+                    </a>
+                </div>
+
+                
+                <!-- Navigation -->
+                <nav class="flex items-center space-x-6">
+                    <a href="../dashboard" class="text-gray-600 hover:text-primary-600 transition-colors duration-200">
+                        <i class="fas fa-home mr-2"></i>Dashboard
+                    </a>
+
+                    <div class="nav-item">
+                        <button onclick="toggleDropdown('userMenu')" class="flex items-center text-gray-600 hover:text-primary-600 transition-colors duration-200">
+                            <i class="fas fa-user-circle mr-2"></i><?= ucfirst(strtolower(htmlspecialchars($_SESSION['role'] ?? 'Guest'))) ?>
+                            <i class="fas fa-chevron-down ml-2 text-xs"></i>
+                        </button>
+                        <div id="userMenu" class="nav-dropdown">
+                            <div class="py-2">
+                                <div class="px-4 py-2 text-sm text-gray-500 border-b">
+                                    Signed in as<br>
+                                    <span class="font-medium text-gray-900"><?= htmlspecialchars($_SESSION['email'] ?? '') ?></span>
+                                </div>
+                                <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
+                                <a href="../management/" class="block px-4 py-2 text-gray-700 hover:bg-primary-50 hover:text-primary-600">
+                                    <i class="fas fa-users mr-2"></i>User Management
+                                </a>
+                                <a href="../settings" class="block px-4 py-2 text-gray-700 hover:bg-primary-50 hover:text-primary-600">
+                                    <i class="fas fa-sliders mr-2"></i>Settings
+                                </a>
+                                <?php endif; ?>
+                                <a href="../auth/logout.php" class="block px-4 py-2 text-gray-700 hover:bg-primary-50 hover:text-primary-600">
+                                    <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                                </a>
+                            </div>
+                        </div>
                     </div>
-                    <a href="../dashboard"><h1 class="text-2xl font-bold text-gray-900">GRS Template Importer</h1></a>
-                </div>
-                <div class="text-gray-500 flex space-x-4">
-                    <a href="../settings">Settings</a>
-                    <a href="../auth/logout.php">Logout</a>
-                </div>
+                </nav>
             </div>
         </div>
     </div>
+
+    <script>
+        function toggleDropdown(menuId) {
+            const menu = document.getElementById(menuId);
+            const allDropdowns = document.querySelectorAll('.nav-dropdown');
+            
+            // Close all other dropdowns
+            allDropdowns.forEach(dropdown => {
+                if (dropdown.id !== menuId) {
+                    dropdown.classList.remove('active');
+                }
+            });
+            
+            // Toggle current dropdown
+            menu.classList.toggle('active');
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.nav-item')) {
+                document.querySelectorAll('.nav-dropdown').forEach(dropdown => {
+                    dropdown.classList.remove('active');
+                });
+            }
+        });
+    </script>

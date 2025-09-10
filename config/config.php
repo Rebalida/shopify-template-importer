@@ -19,9 +19,9 @@ $dotenv->load();
 define('ENCRYPTION_KEY', $_ENV['ENCRYPTION_KEY']);
 
 // Shopify API
-$SHOP_URL = $_ENV['SHOP_URL'];
-$ACCESS_TOKEN = $_ENV['ACCESS_TOKEN'];
-$API_VERSION = $_ENV['API_VERSION'];
+// $SHOP_URL = $_ENV['SHOP_URL'];
+// $ACCESS_TOKEN = $_ENV['ACCESS_TOKEN'];
+// $API_VERSION = $_ENV['API_VERSION'];
 
 // Database
 $DB_HOST = $_ENV['DB_HOST'];
