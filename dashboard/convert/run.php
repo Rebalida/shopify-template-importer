@@ -46,9 +46,13 @@ $config = [
     'max_file_size_mb' => 15 // Maximum file size in MB
 ];
 
-// Master template specific settings
-$headerStartRow = 9; // Headers start at row 9 (1-based)
-$headerStartColumn = 1; // Headers start at column A (1-based)
+
+$headerStartRow = 9;
+$headerStartColumn = 1;
+
+
+$handleTracker = [];
+$productIdentities = [];
 
 // Helper functions
 function to_handle($str) {
@@ -58,6 +62,69 @@ function to_handle($str) {
     $h = preg_replace('/-+/', '-', $h);
     $h = trim($h, '-'); 
     return $h ?: 'product-' . uniqid();
+}
+
+function getProductIdentityHash($title, $sku, $templateType, $rowData = null, $headers = null) {
+    $identityData = [
+        'title' => trim(strtolower($title)),
+        'sku' => trim($sku)
+    ];
+    
+    if ($templateType === 'master' && $rowData && $headers) {
+        $identityData['brand'] = trim(strtolower(getValue($rowData, 'Brand', $headers)));
+        $identityData['code'] = trim(strtolower(getValue($rowData, 'CODE', $headers)));
+        $identityData['ean'] = trim(getValue($rowData, 'EAN-BARCODE', $headers));
+    } elseif ($templateType === 'grs' && $rowData) {
+        $identityData['brand'] = trim(strtolower(getValue($rowData, 'Brand', null)));
+        $identityData['model'] = trim(strtolower(getValue($rowData, 'Model', null)));
+        $identityData['upc'] = trim(getValue($rowData, 'Universal Product Code (UPC)', null));
+        $identityData['ean'] = trim(getValue($rowData, 'European Article Number (EAN)', null));
+    }
+    
+    $identityData = array_filter($identityData, function($value) {
+        return $value !== '' && $value !== null;
+    });
+    
+    return md5(serialize($identityData));
+}
+
+function getUniqueHandle($title, $sku, $templateType, $rowData = null, $headers = null) {
+    global $handleTracker, $productIdentities;
+    
+    $baseHandle = to_handle($title);
+    $productHash = getProductIdentityHash($title, $sku, $templateType, $rowData, $headers);
+    
+    if (isset($productIdentities[$productHash])) {
+        return $productIdentities[$productHash];
+    }
+    
+    if (!isset($handleTracker[$baseHandle])) {
+        $handleTracker[$baseHandle] = ['count' => 1, 'products' => [$productHash]];
+        $productIdentities[$productHash] = $baseHandle;
+        return $baseHandle;
+    }
+    
+    foreach ($handleTracker[$baseHandle]['products'] as $existingHash) {
+        if ($existingHash === $productHash) {
+            return $productIdentities[$productHash];
+        }
+    }
+    
+    $handleTracker[$baseHandle]['count']++;
+    $counter = $handleTracker[$baseHandle]['count'];
+    $uniqueHandle = $baseHandle . '-' . $counter;
+    
+    while (isset($handleTracker[$uniqueHandle])) {
+        $counter++;
+        $uniqueHandle = $baseHandle . '-' . $counter;
+    }
+    
+    // Initialize tracker for the new unique handle
+    $handleTracker[$uniqueHandle] = ['count' => 1, 'products' => [$productHash]];
+    $handleTracker[$baseHandle]['products'][] = $productHash;
+    $productIdentities[$productHash] = $uniqueHandle;
+    
+    return $uniqueHandle;
 }
 
 function getValue($row, $columnName, $headers, $fallback = '') {
@@ -110,6 +177,40 @@ function generateSeoDescription($description, $maxLength = 160) {
 
 function formatDecimal($number, $decimals = 4) {
     return number_format((float)$number, $decimals, '.', '');
+}
+
+function cleanHtmlDescription($html) {
+    if (empty($html)) {
+        return '';
+    }
+    
+    // Convert various break tags to line breaks
+    $html = preg_replace('/<br\s*\/?>/i', "\n", $html);
+    $html = preg_replace('/<br\/>/i', "\n", $html);
+    $html = preg_replace('/<br>/i', "\n", $html);
+    
+    // Convert paragraph tags to double line breaks
+    $html = preg_replace('/<\/p>\s*<p[^>]*>/i', "\n\n", $html);
+    $html = preg_replace('/<p[^>]*>/i', "", $html);
+    $html = preg_replace('/<\/p>/i', "\n\n", $html);
+    
+    // Remove other HTML tags
+    $html = strip_tags($html);
+    
+    // Clean up multiple consecutive line breaks
+    $html = preg_replace('/\n{3,}/', "\n\n", $html);
+    
+    // Trim whitespace
+    $html = trim($html);
+    
+    // Wrap each paragraph in <p> tags
+    $paragraphs = explode("\n\n", $html);
+    $paragraphs = array_map(function($p) {
+        $p = trim($p);
+        return $p ? "<p>" . $p . "</p>" : '';
+    }, $paragraphs);
+    
+    return implode("\n", array_filter($paragraphs));
 }
 
 // Category to Product Type mapping
@@ -217,17 +318,21 @@ if ($templateType === 'master') {
             continue;
         }
 
-        // Extract data starting from the same column as headers
         $rowData = array_slice($row, $headerStartColumn - 1, count($headers));
+        
+        $sku = getValue($rowData, 'CODE', $headers);
+
+        $uniqueHandle = getUniqueHandle($title, $sku, $templateType, $rowData, $headers);
 
         // Combine Features and Specifications for Body HTML
         $bodyHtml = getValue($rowData, 'Features', $headers) . "\n\n" . 
                     getValue($rowData, 'Specifications', $headers);
+        $cleanBodyHtml = cleanHtmlDescription($bodyHtml);
 
         $outRow = [
-            getValue($rowData, 'CODE', $headers), // Handle
+            $uniqueHandle, 
             $title,
-            htmlspecialchars($bodyHtml, ENT_QUOTES, 'UTF-8'),
+            $cleanBodyHtml,
             getValue($rowData, 'Supplier', $headers),
             '',
             getValue($rowData, 'Brand', $headers),
@@ -299,6 +404,10 @@ if ($templateType === 'master') {
         $vendor = getValue($r, 'Brand', null);
         $model = getValue($r, 'Model', null);
         $sku = getValue($r, 'SKU', null);
+        
+        // Generate unique handle
+        $product_handle = getUniqueHandle($title, $sku, $templateType, $r);
+        
         $productCost = cleanNumeric(getValue($r, 'Product Cost', null), '0');
         $msrp = cleanNumeric(getValue($r, 'MSRP', null), '');
         $img = cleanUrl(getValue($r, 'Image URL', null));
@@ -309,7 +418,6 @@ if ($templateType === 'master') {
         $ean = getValue($r, 'European Article Number (EAN)', null);
         $categoryCode = getValue($r, 'Category Code', null);
         
-        $product_handle = to_handle($title);
         $productType = $productTypeMap[$categoryCode] ?? '';
         
         $tags = array_filter([
@@ -332,11 +440,13 @@ if ($templateType === 'master') {
         $imageAlt = !empty($img) ? $title : '';
         $option1Name = $config['default_option1_name'];
         $option1Value = !empty($model) ? $model : $config['default_option1_value'];
+
+        $cleanDesc = cleanHtmlDescription($desc);
         
         $outRow = [
-            $product_handle,
+            $product_handle, // Use unique handle
             $title,
-            htmlspecialchars($desc, ENT_QUOTES, 'UTF-8'),
+            $cleanDesc,
             $vendor,
             '',
             $productType,
